@@ -1,0 +1,22 @@
+PART 2 REPORT
+==================================================
+
+Deliverable 2: GD Agreement
+------------------------------
+Iterations to reach relative error < 1e-6: 28227
+cond(Phi^T Phi):               2.31e+14
+cond(Phi^T Phi + lambda*I):    2.04e+03
+Conditioning Discussion: The addition of the lambda penalty dramatically decreased the condition number, stabilizing the Hessian matrix and making standard gradient descent practical without requiring QR reparameterization.
+
+Deliverable 3: RMSE Sweep
+------------------------------
+Optimal lambda (lambda*):      1.7783e-07
+Test RMSE at lambda*:          0.114577
+Interval (<= 1.05 * min RMSE): [3.1623e-08, 1.0000e-04]
+Interval Discussion: The minimum is relatively flat within the threshold interval. To the left of the interval (lower lambda), the model overfits, causing test RMSE to spike while train RMSE stays low. To the right of the interval (higher lambda), the model underfits, causing both train and test RMSE to increase.
+
+Deliverable 4: Fitted Curves Norms
+------------------------------
+||w||_2 at lambda = 1e-10:     3979.2246
+||w||_2 at lambda = lambda*:   124.4946
+||w||_2 at lambda = 1e-2:      5.1079

@@ -1,0 +1,14 @@
+Deliverable 5: Verification against Closed-Form (d=9)
+============================================================
+Batch GD:
+  Absolute Error ||w_GD - w_closed||_2: 1.964921e-06
+  Relative Error:                       1.799734e-11
+
+Stochastic GD:
+  Absolute Error ||w_GD - w_closed||_2: 1.965133e-06
+  Relative Error:                       1.799929e-11
+
+Mini-batch GD:
+  Absolute Error ||w_GD - w_closed||_2: 1.964678e-06
+  Relative Error:                       1.799512e-11
+

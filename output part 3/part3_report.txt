@@ -1,0 +1,17 @@
+Deliverable 1 Verification:
+  max |Phi_j^T r - lam*sign(w_j)| for w!=0: 0.014358
+  max |Phi_j^T r| / lam for w==0 (should be <=1): 0.683041
+  ||w - w_star_ref||_2: 0.0076
+
+Deliverable 4: Selecting lambda*
+  lambda* = 0.1000
+  Test RMSE = 0.098544
+  Indices of approx 0 coeffs: [0, 6, 8, 9]
+  Total 0 coeffs: 4
+
+Deliverable 5 & 7 Table (Lasso vs Ridge):
+  Lasso (lam=0.1000): RMSE=0.0985, ||w||_2=1.4667, |w_j|<0.01 count: 4
+  Ridge (lam=0.1585): RMSE=0.1422, ||w||_2=1.4406, |w_j|<0.01 count: 1
+
+Discussion (Deliverable 7):
+Because the L1 norm creates a diamond-shaped constraint geometry, the objective contours hit the corners exactly on the axes, driving coefficients exactly to zero. In contrast, the L2 ball is circular, so contours meet it tangentially away from the axes, only shrinking coefficients without zeroing them. As lambda grows past optimal, both models over-penalize: test error rises as they underfit, and train error steadily climbs towards the variance of the targets.

@@ -1,0 +1,6 @@
+Deliverable 2: Equivalence Check
+  ||w_MAP - m_N||_2 = 1.138522e-12
+  This confirms the MAP point estimate perfectly matches the mean of the Bayesian predictive posterior.
+
+Deliverable 4: Discussion
+As N increases, the posterior covariance matrix S_N physically shrinks because the data contributes more information (beta * Phi^T Phi dominates), reducing the parameter uncertainty term phi(x)^T S_N phi(x). However, the irreducible observation-noise term (beta^-1) represents the inherent variance in the physical process generating the data, meaning predictions will always have a baseline uncertainty floor regardless of how accurately we estimate the polynomial weights.
