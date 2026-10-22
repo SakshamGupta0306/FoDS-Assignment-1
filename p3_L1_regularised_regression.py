@@ -194,7 +194,7 @@ def run_part3():
     plt.xlabel('x')
     plt.ylabel('y')
     plt.ylim(-1.5, 1.5)
-    plt.title(r'Deliverable 6: Lasso vs. Ridge Fit at Each Method\'s Best $\lambda$')
+    plt.title(r"Deliverable 6: Lasso vs. Ridge Fit at Each Method's Best $\lambda$")
     plt.legend()
     plt.savefig(os.path.join(output_dir, 'deliverable_6_fitted_curves.png'), dpi=120)
     plt.close()
@@ -204,22 +204,18 @@ def run_part3():
     # ------------------------------------------------------------------
     report += [
         "Deliverable 7: Discussion",
-        "The coefficient path shows the L1 penalty pushing coefficients to ~0 one "
-        f"after another as lambda grows ({zc[0]} are ~0 at lambda={lams[0]:.0e}, "
-        f"{len(zero_idx)} at lambda*={lam_l:.2f}, {zc[-1]} at lambda={lams[-1]:.0f}). "
-        "This follows from the optimality condition: w_j can sit at zero whenever "
-        "|Phi_j^T r| <= lambda, i.e. the L1 ball has corners on the axes (a constant "
-        "subgradient pull toward 0 with a flat-bottomed |w| penalty), whereas the L2 "
-        "penalty's pull is proportional to w_j and vanishes near 0, so it only "
-        f"shrinks coefficients: at their best lambda Lasso has {n_small_l} coefficients "
-        f"with |w_j|<0.01 versus {n_small_r} for Ridge, with similar ||w||_2 "
-        f"({np.linalg.norm(w_l):.2f} vs {np.linalg.norm(w_r):.2f}) but a lower test "
-        f"RMSE ({te[i_l]:.4f} vs {te_r[i_r]:.4f}). (With a constant step the "
-        "subgradient method only reaches ~0, within ~eta*lambda, never exactly 0.) "
-        f"Past lambda*, the model is over-penalised: train RMSE rises from "
-        f"{tr[i_l]:.3f} to {tr[-1]:.3f} and test RMSE from {te[i_l]:.3f} to "
-        f"{te[-1]:.3f} at lambda={lams[-1]:.0f}, and the two curves converge because "
-        "the fit is underfitting both sets."]
+        f"In the coefficient path, the L1 penalty drives coefficients to ~0 one by one "
+        f"as lambda grows ({zc[0]} are ~0 at lambda={lams[0]:.0e}, {len(zero_idx)} at "
+        f"lambda*={lam_l:.2f}, {zc[-1]} at lambda={lams[-1]:.0f}). The |w| penalty has a "
+        "kink at 0, so its pull on w_j keeps magnitude lambda however small w_j gets, and "
+        "w_j stays at 0 whenever |Phi_j^T r| <= lambda (the L1 ball has corners on the "
+        "axes). The L2 pull, lambda*w_j, vanishes as w_j -> 0, so ridge only shrinks. "
+        f"At their best lambda, Lasso has {n_small_l} coefficients with |w_j|<0.01 versus "
+        f"{n_small_r} for Ridge, at similar ||w||_2 ({np.linalg.norm(w_l):.2f} vs "
+        f"{np.linalg.norm(w_r):.2f}) and lower test RMSE ({te[i_l]:.4f} vs {te_r[i_r]:.4f}). "
+        f"Past lambda*, train RMSE rises from {tr[i_l]:.3f} to {tr[-1]:.3f} and test RMSE "
+        f"from {te[i_l]:.3f} to {te[-1]:.3f}; the two converge because the model is "
+        "underfitting both sets."]
 
     write_report(os.path.join(output_dir, 'part3_report.txt'), report)
 

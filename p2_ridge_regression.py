@@ -131,15 +131,19 @@ def run_part2():
         report.append("  All grid lambdas satisfying it: " +
                       ", ".join(f"{v:.2e}" for v in all_ok))
     i_hi = int(np.argmin(np.abs(lams - 1e-2)))
+    flat_lo, flat_hi = all_ok.min(), all_ok.max()
+    flat_dec = np.log10(flat_hi / flat_lo)
     report += [
-        f"  Test RMSE at lambda=1e-10: {test_rmse[0]:.4f}; at lambda=1e-2: "
-        f"{test_rmse[i_hi]:.4f} (train {train_rmse[i_hi]:.4f})",
-        "  Discussion: The minimum is flat rather than sharp, since test RMSE stays "
-        f"within 5% of its minimum across about {decades:.1f} decades of lambda "
-        f"([{contiguous[0]:.1e}, {contiguous[1]:.1e}]). Below the interval the fit "
-        f"overfits (wiggly, large weights, test RMSE rising to {test_rmse[0]:.3f} "
-        "while train RMSE is near 0), and above it the fit is over-smoothed so "
-        "both train and test RMSE climb.",
+        f"  Test RMSE at lambda=1e-10: {test_rmse[0]:.4f} (train {train_rmse[0]:.4f}); "
+        f"at lambda=1e-2: {test_rmse[i_hi]:.4f} (train {train_rmse[i_hi]:.4f})",
+        "  Discussion: The minimum is flat, not sharp. Test RMSE stays within 5% of its "
+        f"minimum from {contiguous[0]:.1e} to {contiguous[1]:.1e} ({decades:.1f} decades), "
+        f"and the grid points satisfying the threshold span {flat_lo:.1e} to {flat_hi:.1e} "
+        f"({flat_dec:.1f} decades), although the threshold is borderline near 1e-5 to 1e-4. "
+        f"Below the interval the fit overfits (train RMSE {train_rmse[0]:.3f} at 1e-10, "
+        f"huge weights, test RMSE rising to {test_rmse[0]:.3f}); above it, test RMSE stays "
+        f"nearly flat until about 1e-4 and then climbs steeply (train and test both reach "
+        f"~{test_rmse[i_hi]:.2f} at 1e-2) as the fit is over-smoothed.",
         ""]
 
     # ------------------------------------------------------------------

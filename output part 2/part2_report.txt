@@ -15,8 +15,8 @@ Deliverable 3: lambda selection
   Contiguous interval around lambda* with test RMSE <= 1.05 x min: [3.1623e-08, 1.7783e-06] (1.8 decades)
   Set of ALL grid lambdas satisfying the threshold is contiguous: False
   All grid lambdas satisfying it: 3.16e-08, 5.62e-08, 1.00e-07, 1.78e-07, 3.16e-07, 5.62e-07, 1.00e-06, 1.78e-06, 1.00e-04
-  Test RMSE at lambda=1e-10: 0.1605; at lambda=1e-2: 0.2660 (train 0.2659)
-  Discussion: The minimum is flat rather than sharp, since test RMSE stays within 5% of its minimum across about 1.8 decades of lambda ([3.2e-08, 1.8e-06]). Below the interval the fit overfits (wiggly, large weights, test RMSE rising to 0.161 while train RMSE is near 0), and above it the fit is over-smoothed so both train and test RMSE climb.
+  Test RMSE at lambda=1e-10: 0.1605 (train 0.0165); at lambda=1e-2: 0.2660 (train 0.2659)
+  Discussion: The minimum is flat, not sharp. Test RMSE stays within 5% of its minimum from 3.2e-08 to 1.8e-06 (1.8 decades), and the grid points satisfying the threshold span 3.2e-08 to 1.0e-04 (3.5 decades), although the threshold is borderline near 1e-5 to 1e-4. Below the interval the fit overfits (train RMSE 0.016 at 1e-10, huge weights, test RMSE rising to 0.161); above it, test RMSE stays nearly flat until about 1e-4 and then climbs steeply (train and test both reach ~0.27 at 1e-2) as the fit is over-smoothed.
 
 Deliverable 4: ||w||_2 of the three fits
   lambda = 1.000e-10: ||w||_2 = 3979.2246
