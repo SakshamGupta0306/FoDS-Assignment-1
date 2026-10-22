@@ -1,171 +1,229 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from common import load_dataset, plot_true_sine, calculate_rmse
+from common import data_path, load_dataset, plot_true_sine, calculate_rmse, write_report
 
 output_dir = "output part 3"
 os.makedirs(output_dir, exist_ok=True)
 
-def legendre_features(x: np.ndarray, degree: int = 9) -> np.ndarray:
-    """Generates shifted Legendre polynomial basis P_j(2x-1)[cite: 4, 5]."""
+ETA = 0.05
+ITERS = 20000
+D = 9
+E_STAR = 0.2625
+W_STAR = np.array([0, -0.928, 0.045, 1.117, 0.032, -0.201, 0, -0.026, 0, 0])
+
+
+def legendre_features(x, degree=D):
+    """Shifted Legendre basis P_j(2x-1), j = 0..degree."""
     return np.polynomial.legendre.legvander(2 * x - 1, degree)
 
+
+def lasso_obj(Phi, t, w, lam):
+    r = Phi @ w - t
+    return 0.5 * r @ r + lam * np.abs(w).sum()
+
+
+def subgradient_descent(Phi, t, lam, eta=ETA, iters=ITERS):
+    """Returns the FINAL iterate, E(w_k) for k=0..iters, and best-so-far E."""
+    w = np.zeros(Phi.shape[1])
+    E_hist = np.empty(iters + 1)
+    for k in range(iters):
+        r = Phi @ w - t
+        E_hist[k] = 0.5 * r @ r + lam * np.abs(w).sum()
+        w = w - eta * (Phi.T @ r + lam * np.sign(w))
+    E_hist[iters] = lasso_obj(Phi, t, w, lam)
+    best = np.minimum.accumulate(E_hist)           # used ONLY for the convergence plot
+    return w, E_hist, best
+
+
 def run_part3():
-    x_train, y_train = load_dataset('A1 - Data Sets/poly_train.csv')
-    x_test, y_test = load_dataset('A1 - Data Sets/poly_test.csv')
-    
+    x_train, y_train = load_dataset(data_path('poly_train.csv'))
+    x_test, y_test = load_dataset(data_path('poly_test.csv'))
     Phi_train = legendre_features(x_train)
     Phi_test = legendre_features(x_test)
-    
-    d = 9
-    eta = 0.05
-    iters = 20000
     lams = np.logspace(-4, 0, 21)
-    
-    # ---------------------------------------------------------
-    # Subgradient Descent Function
-    # ---------------------------------------------------------
-    def run_subgradient_descent(lam):
-        w = np.zeros(d + 1)
-        best_E = float('inf')
-        E_history = []
-        best_E_history = []
-        
-        for _ in range(iters):
-            E = 0.5 * np.sum((Phi_train @ w - y_train)**2) + lam * np.sum(np.abs(w))
-            if E < best_E:
-                best_E = E
-            E_history.append(E)
-            best_E_history.append(best_E)
-            
-            grad = Phi_train.T @ (Phi_train @ w - y_train) + lam * np.sign(w)
-            w = w - eta * grad
-            
-        return w, E_history, best_E_history
+    report = ["PART 3 REPORT", "=" * 60, ""]
 
-    # ---------------------------------------------------------
-    # Deliverable 1: Convergence and verification at lambda=0.1
-    # ---------------------------------------------------------
-    lam_01 = 0.1
-    w_final_01, E_hist, best_E_hist = run_subgradient_descent(lam_01)
-    
-    plt.figure(figsize=(8, 6))
-    plt.plot(E_hist, label='E(w)', alpha=0.5, color='orange')
-    plt.plot(best_E_hist, label='Best-so-far E', color='red', linewidth=2)
-    plt.yscale('log')
-    plt.xlabel('Iterations')
-    plt.ylabel('Objective E')
-    plt.title('Deliverable 1: Lasso Convergence at $\lambda=0.1$')
-    plt.legend()
-    plt.grid(True, ls="--")
-    plt.savefig(os.path.join(output_dir, 'deliverable_1_convergence.png'))
-    plt.close()
+    # ------------------------------------------------------------------
+    # Deliverable 1: convergence + verification at lambda = 0.1
+    # ------------------------------------------------------------------
+    lam = 0.1
+    w, E_hist, best = subgradient_descent(Phi_train, y_train, lam)
 
-    # Verification Math
-    threshold = 2 * eta * lam_01
-    zero_mask = np.abs(w_final_01) < threshold
-    r = y_train - Phi_train @ w_final_01
-    
-    non_zero_cond = np.max(np.abs(Phi_train[:, ~zero_mask].T @ r - lam_01 * np.sign(w_final_01[~zero_mask]))) if np.sum(~zero_mask) > 0 else 0
-    zero_cond = np.max(np.abs(Phi_train[:, zero_mask].T @ r) / lam_01) if np.sum(zero_mask) > 0 else 0
-    
-    w_star_ref = np.array([0, -0.928, 0.045, 1.117, 0.032, -0.201, 0, -0.026, 0, 0])
-    w_diff = np.linalg.norm(w_final_01 - w_star_ref)
-
-    # ---------------------------------------------------------
-    # Deliverables 2 & 3: RMSE Sweep and Coefficient Path
-    # ---------------------------------------------------------
-    w_all = []
-    train_rmses, test_rmses, zero_counts = [], [], []
-    
-    for lam in lams:
-        w_lam, _, _ = run_subgradient_descent(lam)
-        w_all.append(w_lam)
-        train_rmses.append(calculate_rmse(y_train, Phi_train @ w_lam))
-        test_rmses.append(calculate_rmse(y_test, Phi_test @ w_lam))
-        zero_counts.append(np.sum(np.abs(w_lam) < 2 * eta * lam))
-        
-    w_all = np.array(w_all)
-    
-    plt.figure(figsize=(10, 6))
-    plt.plot(lams, train_rmses, label='Train RMSE', marker='o')
-    plt.plot(lams, test_rmses, label='Test RMSE', marker='s')
-    plt.axhline(0.1, color='k', linestyle='--', label='Noise (0.1)')
-    plt.xscale('log')
-    plt.xlabel('$\lambda$')
-    plt.ylabel('RMSE')
-    plt.title('Deliverable 2: Lasso RMSE Sweep')
-    plt.legend()
-    plt.savefig(os.path.join(output_dir, 'deliverable_2_rmse_sweep.png'))
-    plt.close()
-
-    plt.figure(figsize=(10, 6))
-    for j in range(d + 1):
-        plt.plot(lams, w_all[:, j], label=f'w_{j}')
-    plt.xscale('log')
-    plt.xlabel('$\lambda$')
-    plt.ylabel('Coefficient Value')
-    plt.title('Deliverable 3: Lasso Coefficient Path')
-    plt.legend(bbox_to_anchor=(1.04,1), loc="upper left")
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.5))
+    for ax, xscale, ttl in [(axes[0], 'linear', 'Linear iteration axis'),
+                            (axes[1], 'log', 'Log iteration axis (shows the tail)')]:
+        ax.plot(np.arange(len(E_hist)) + (1 if xscale == 'log' else 0), E_hist,
+                color='orange', alpha=0.8, label='E(w)')
+        ax.plot(np.arange(len(best)) + (1 if xscale == 'log' else 0), best,
+                color='red', linestyle='--', linewidth=2, label='Best-so-far E')
+        ax.axhline(E_STAR, color='k', linestyle=':', label=r'Reference $E^\star=0.2625$')
+        ax.set_yscale('log')
+        ax.set_xscale(xscale)
+        ax.set_xlabel('Iteration')
+        ax.set_ylabel('Objective E (log scale)')
+        ax.set_title(ttl)
+        ax.grid(True, which='both', ls='--')
+        ax.legend()
+    fig.suptitle(r'Deliverable 1: Lasso Subgradient Descent at $\lambda=0.1$')
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'deliverable_3_coeff_path.png'))
+    plt.savefig(os.path.join(output_dir, 'deliverable_1_convergence.png'), dpi=120)
     plt.close()
 
-    # ---------------------------------------------------------
-    # Deliverable 4 & 5: Selecting lambda* and Lasso vs Ridge
-    # ---------------------------------------------------------
-    opt_idx_lasso = np.argmin(test_rmses)
-    lam_star_lasso = lams[opt_idx_lasso]
-    w_star_lasso = w_all[opt_idx_lasso]
-    zero_idx = np.where(np.abs(w_star_lasso) < 2 * eta * lam_star_lasso)[0]
+    thr = 2 * ETA * lam
+    zero = np.abs(w) < thr
+    r = y_train - Phi_train @ w
+    corr = Phi_train.T @ r
+    nz_cond = np.max(np.abs(corr[~zero] - lam * np.sign(w[~zero]))) if (~zero).any() else 0.0
+    z_cond = np.max(np.abs(corr[zero]) / lam) if zero.any() else 0.0
+    E_final = lasso_obj(Phi_train, y_train, w, lam)
+    report += [
+        "Deliverable 1: lambda = 0.1 (eta=0.05, 20000 iterations, w0=0)",
+        f"  Final-iterate E            = {E_final:.6f}",
+        f"  Best-so-far E              = {best[-1]:.6f}",
+        f"  Reference E*               = {E_STAR}",
+        f"  E_final - E*               = {E_final - E_STAR:.3e}",
+        f"  max |Phi_j^T r - lam*sign(w_j)| over non-~0 coeffs = {nz_cond:.6f}",
+        f"  max |Phi_j^T r| / lam over ~0 coeffs (should be <= 1) = {z_cond:.6f}",
+        f"  ||w - w*||_2               = {np.linalg.norm(w - W_STAR):.4f}",
+        f"  (~0 rule |w_j| < 2*eta*lam = {thr:.3f}; coefficients chatter with "
+        "amplitude ~ eta*lam, so agreement with w* is only to ~1e-2.)",
+        ""]
 
-    # Ridge in Legendre Basis
-    test_rmses_ridge = []
-    w_ridge_all = []
-    I = np.eye(d + 1)
-    for lam in lams:
-        w_r = np.linalg.solve(Phi_train.T @ Phi_train + lam * I, Phi_train.T @ y_train)
-        w_ridge_all.append(w_r)
-        test_rmses_ridge.append(calculate_rmse(y_test, Phi_test @ w_r))
-        
-    opt_idx_ridge = np.argmin(test_rmses_ridge)
-    lam_star_ridge = lams[opt_idx_ridge]
-    w_star_ridge = w_ridge_all[opt_idx_ridge]
+    # ------------------------------------------------------------------
+    # Sweep over lambda (final iterates only)
+    # ------------------------------------------------------------------
+    w_all, tr, te, zc = [], [], [], []
+    for lam_i in lams:
+        w_i, _, _ = subgradient_descent(Phi_train, y_train, lam_i)
+        w_all.append(w_i)
+        tr.append(calculate_rmse(y_train, Phi_train @ w_i))
+        te.append(calculate_rmse(y_test, Phi_test @ w_i))
+        zc.append(int(np.sum(np.abs(w_i) < 2 * ETA * lam_i)))
+    w_all, tr, te, zc = map(np.array, (w_all, tr, te, zc))
 
-    # ---------------------------------------------------------
-    # Deliverable 6: Fitted Curves
-    # ---------------------------------------------------------
+    # Deliverable 2: RMSE sweep
     plt.figure(figsize=(10, 6))
+    plt.plot(lams, tr, label='Train RMSE', marker='o')
+    plt.plot(lams, te, label='Test RMSE', marker='s')
+    plt.axhline(0.1, color='k', linestyle='--', label=r'Noise level $\sqrt{0.01}=0.1$')
+    plt.xscale('log')
+    plt.xlabel(r'$\lambda$ (log scale)')
+    plt.ylabel('RMSE')
+    plt.title(r'Deliverable 2: Lasso Train/Test RMSE vs. $\lambda$')
+    plt.legend()
+    plt.grid(True, which='both', ls='--')
+    plt.savefig(os.path.join(output_dir, 'deliverable_2_rmse_sweep.png'), dpi=120)
+    plt.close()
+
+    # Deliverable 3: coefficient path + count of ~0 coefficients
+    fig, axes = plt.subplots(1, 2, figsize=(15, 6), gridspec_kw={'width_ratios': [2.2, 1]})
+    for j in range(D + 1):
+        axes[0].plot(lams, w_all[:, j], label=f'$w_{j}$')
+    axes[0].set_xscale('log')
+    axes[0].set_xlabel(r'$\lambda$ (log scale)')
+    axes[0].set_ylabel('Coefficient value')
+    axes[0].set_title('Lasso coefficient path (Legendre basis)')
+    axes[0].grid(True, which='both', ls='--', alpha=0.5)
+    axes[0].legend(ncol=2, fontsize=8)
+    axes[1].step(lams, zc, where='mid', marker='o')
+    axes[1].set_xscale('log')
+    axes[1].set_xlabel(r'$\lambda$ (log scale)')
+    axes[1].set_ylabel(r'# coefficients with $|w_j|<2\eta\lambda$')
+    axes[1].set_title(r'Number of $\approx 0$ coefficients')
+    axes[1].grid(True, which='both', ls='--', alpha=0.5)
+    fig.suptitle('Deliverable 3: Lasso Coefficient Path')
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'deliverable_3_coeff_path.png'), dpi=120)
+    plt.close()
+
+    report.append("Deliverable 3: number of ~0 coefficients (|w_j| < 2*eta*lambda) per lambda")
+    report.append("  lambda      #~0   train RMSE  test RMSE")
+    for lam_i, c, a, b_ in zip(lams, zc, tr, te):
+        report.append(f"  {lam_i:.4e}  {c:3d}   {a:.6f}   {b_:.6f}")
+    report.append("")
+
+    # ------------------------------------------------------------------
+    # Deliverable 4: lambda*
+    # ------------------------------------------------------------------
+    i_l = int(np.argmin(te))
+    lam_l, w_l = lams[i_l], w_all[i_l]
+    zero_idx = np.where(np.abs(w_l) < 2 * ETA * lam_l)[0]
+    report += [
+        "Deliverable 4: Lasso lambda*",
+        f"  lambda* = {lam_l:.4f}, test RMSE = {te[i_l]:.6f}",
+        f"  # ~0 coefficients = {len(zero_idx)}, indices = {zero_idx.tolist()}",
+        ""]
+
+    # ------------------------------------------------------------------
+    # Deliverable 5: Ridge in the same Legendre basis, same grid
+    # ------------------------------------------------------------------
+    G = Phi_train.T @ Phi_train
+    b = Phi_train.T @ y_train
+    w_r_all, te_r = [], []
+    for lam_i in lams:
+        w_r = np.linalg.solve(G + lam_i * np.eye(D + 1), b)
+        w_r_all.append(w_r)
+        te_r.append(calculate_rmse(y_test, Phi_test @ w_r))
+    te_r = np.array(te_r)
+    i_r = int(np.argmin(te_r))
+    lam_r, w_r = lams[i_r], w_r_all[i_r]
+    edge = " (WARNING: at grid edge)" if i_r in (0, len(lams) - 1) else ""
+
+    n_small_l = int(np.sum(np.abs(w_l) < 0.01))
+    n_small_r = int(np.sum(np.abs(w_r) < 0.01))
+    report += [
+        "Deliverable 5: Lasso vs Ridge (each at its own best lambda by test RMSE)",
+        "  Method | lambda* | Test RMSE | ||w||_2 | #(|w_j|<0.01)",
+        "  -------|---------|-----------|---------|--------------",
+        f"  Lasso  | {lam_l:.4f}  | {te[i_l]:.4f}    | {np.linalg.norm(w_l):.4f}  | {n_small_l}",
+        f"  Ridge  | {lam_r:.4f}  | {te_r[i_r]:.4f}    | {np.linalg.norm(w_r):.4f}  | {n_small_r}{edge}",
+        ""]
+
+    # ------------------------------------------------------------------
+    # Deliverable 6: fitted curves
+    # ------------------------------------------------------------------
     x_plot = np.linspace(0, 1, 200)
     Phi_plot = legendre_features(x_plot)
-    plt.scatter(x_train, y_train, color='red', label='Train Data')
+    plt.figure(figsize=(10, 6))
+    plt.scatter(x_train, y_train, color='red', label='Train data')
     plot_true_sine(plt.gca())
-    plt.plot(x_plot, Phi_plot @ w_star_lasso, label=f'Lasso ($\lambda={lam_star_lasso:.4f}$)', color='blue')
-    plt.plot(x_plot, Phi_plot @ w_star_ridge, label=f'Ridge ($\lambda={lam_star_ridge:.4f}$)', color='green', linestyle='-.')
-    plt.legend()
+    plt.plot(x_plot, Phi_plot @ w_l, color='blue', label=rf'Lasso ($\lambda^*={lam_l:.4f}$)')
+    plt.plot(x_plot, Phi_plot @ w_r, color='green', linestyle='-.',
+             label=rf'Ridge ($\lambda^*={lam_r:.4f}$)')
+    plt.xlabel('x')
+    plt.ylabel('y')
     plt.ylim(-1.5, 1.5)
-    plt.title('Deliverable 6: Lasso vs Ridge Fit at optimal $\lambda$')
-    plt.savefig(os.path.join(output_dir, 'deliverable_6_fitted_curves.png'))
+    plt.title(r'Deliverable 6: Lasso vs. Ridge Fit at Each Method\'s Best $\lambda$')
+    plt.legend()
+    plt.savefig(os.path.join(output_dir, 'deliverable_6_fitted_curves.png'), dpi=120)
     plt.close()
 
-    # Write Report
-    with open(os.path.join(output_dir, 'part3_report.txt'), 'w') as f:
-        f.write("Deliverable 1 Verification:\n")
-        f.write(f"  max |Phi_j^T r - lam*sign(w_j)| for w!=0: {non_zero_cond:.6f}\n")
-        f.write(f"  max |Phi_j^T r| / lam for w==0 (should be <=1): {zero_cond:.6f}\n")
-        f.write(f"  ||w - w_star_ref||_2: {w_diff:.4f}\n\n")
-        
-        f.write("Deliverable 4: Selecting lambda*\n")
-        f.write(f"  lambda* = {lam_star_lasso:.4f}\n")
-        f.write(f"  Test RMSE = {test_rmses[opt_idx_lasso]:.6f}\n")
-        f.write(f"  Indices of approx 0 coeffs: {zero_idx.tolist()}\n")
-        f.write(f"  Total 0 coeffs: {len(zero_idx)}\n\n")
-        
-        f.write("Deliverable 5 & 7 Table (Lasso vs Ridge):\n")
-        f.write(f"  Lasso (lam={lam_star_lasso:.4f}): RMSE={test_rmses[opt_idx_lasso]:.4f}, ||w||_2={np.linalg.norm(w_star_lasso):.4f}, |w_j|<0.01 count: {np.sum(np.abs(w_star_lasso)<0.01)}\n")
-        f.write(f"  Ridge (lam={lam_star_ridge:.4f}): RMSE={test_rmses_ridge[opt_idx_ridge]:.4f}, ||w||_2={np.linalg.norm(w_star_ridge):.4f}, |w_j|<0.01 count: {np.sum(np.abs(w_star_ridge)<0.01)}\n")
-        f.write("\nDiscussion (Deliverable 7):\n")
-        f.write("Because the L1 norm creates a diamond-shaped constraint geometry, the objective contours hit the corners exactly on the axes, driving coefficients exactly to zero. In contrast, the L2 ball is circular, so contours meet it tangentially away from the axes, only shrinking coefficients without zeroing them. As lambda grows past optimal, both models over-penalize: test error rises as they underfit, and train error steadily climbs towards the variance of the targets.\n")
+    # ------------------------------------------------------------------
+    # Deliverable 7: discussion (numbers filled in from the results)
+    # ------------------------------------------------------------------
+    report += [
+        "Deliverable 7: Discussion",
+        "The coefficient path shows the L1 penalty pushing coefficients to ~0 one "
+        f"after another as lambda grows ({zc[0]} are ~0 at lambda={lams[0]:.0e}, "
+        f"{len(zero_idx)} at lambda*={lam_l:.2f}, {zc[-1]} at lambda={lams[-1]:.0f}). "
+        "This follows from the optimality condition: w_j can sit at zero whenever "
+        "|Phi_j^T r| <= lambda, i.e. the L1 ball has corners on the axes (a constant "
+        "subgradient pull toward 0 with a flat-bottomed |w| penalty), whereas the L2 "
+        "penalty's pull is proportional to w_j and vanishes near 0, so it only "
+        f"shrinks coefficients: at their best lambda Lasso has {n_small_l} coefficients "
+        f"with |w_j|<0.01 versus {n_small_r} for Ridge, with similar ||w||_2 "
+        f"({np.linalg.norm(w_l):.2f} vs {np.linalg.norm(w_r):.2f}) but a lower test "
+        f"RMSE ({te[i_l]:.4f} vs {te_r[i_r]:.4f}). (With a constant step the "
+        "subgradient method only reaches ~0, within ~eta*lambda, never exactly 0.) "
+        f"Past lambda*, the model is over-penalised: train RMSE rises from "
+        f"{tr[i_l]:.3f} to {tr[-1]:.3f} and test RMSE from {te[i_l]:.3f} to "
+        f"{te[-1]:.3f} at lambda={lams[-1]:.0f}, and the two curves converge because "
+        "the fit is underfitting both sets."]
+
+    write_report(os.path.join(output_dir, 'part3_report.txt'), report)
+
 
 if __name__ == "__main__":
     run_part3()
+    print(f"Part 3 complete. Check the '{output_dir}' directory for outputs.")

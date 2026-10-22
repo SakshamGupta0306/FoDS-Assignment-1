@@ -1,184 +1,202 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from common import load_dataset, plot_true_sine, generate_polynomial_features
+from common import (data_path, load_dataset, plot_true_sine,
+                    generate_polynomial_features, write_report)
 
-# Create output directory
 output_dir = "output part 1"
 os.makedirs(output_dir, exist_ok=True)
 
-# Set random seed for reproducibility (required for shuffling)
-SEED = 42
-rng = np.random.default_rng(SEED)
+SEED = 42          # seed for the per-epoch shuffling (stated in the report)
+D = 9
+BATCH_SIZE = 3
 
-def calculate_loss(Q: np.ndarray, alpha: np.ndarray, y: np.ndarray) -> float:
-    """Computes the Sum of Squared Errors (SSE) loss E(alpha) = 0.5 * ||Q * alpha - y||^2"""
-    return 0.5 * np.sum((Q @ alpha - y) ** 2)
+
+def loss(Q, a, t):
+    """E(alpha) = 0.5 * ||Q alpha - t||^2 (unnormalised SSE)."""
+    return 0.5 * np.sum((Q @ a - t) ** 2)
+
+
+def batch_gd(Q, t, eta, epochs):
+    a = np.zeros(Q.shape[1])
+    losses = [loss(Q, a, t)]                      # epoch 0 = initial loss
+    for _ in range(epochs):
+        a = a - eta * (Q.T @ (Q @ a - t))         # full sum, not divided by N
+        losses.append(loss(Q, a, t))
+    return a, np.array(losses)
+
+
+def sgd_and_minibatch(Q, t, eta, epochs, seed):
+    """SGD and mini-batch GD (size 3, averaged gradient); same shuffle per epoch."""
+    rng = np.random.default_rng(seed)
+    N = Q.shape[0]
+    a_sgd = np.zeros(Q.shape[1])
+    a_mb = np.zeros(Q.shape[1])
+    l_sgd = [loss(Q, a_sgd, t)]
+    l_mb = [loss(Q, a_mb, t)]
+    for _ in range(epochs):
+        idx = rng.permutation(N)
+        # SGD: N updates per epoch, single-point gradient contribution
+        for i in idx:
+            qi = Q[i:i + 1, :]
+            a_sgd = a_sgd - eta * (qi.T @ (qi @ a_sgd - t[i:i + 1]))
+        l_sgd.append(loss(Q, a_sgd, t))
+        # Mini-batch: batches of 3,3,3,1 with AVERAGED gradient
+        for s in range(0, N, BATCH_SIZE):
+            b = idx[s:s + BATCH_SIZE]
+            Qb, tb = Q[b, :], t[b]
+            a_mb = a_mb - eta * (Qb.T @ (Qb @ a_mb - tb)) / len(b)
+        l_mb.append(loss(Q, a_mb, t))
+    return a_sgd, np.array(l_sgd), a_mb, np.array(l_mb)
+
 
 def run_part1():
-    # Load dataset
-    x_train, y_train = load_dataset('A1 - Data Sets/poly_train.csv')
-    N = len(x_train)
+    x_train, y_train = load_dataset(data_path('poly_train.csv'))
+    report = ["PART 1 REPORT", "=" * 60,
+              f"Random seed used for shuffling: {SEED} (np.random.default_rng({SEED}))", ""]
 
-    # ---------------------------------------------------------
-    # Deliverable 1: Fit polynomials of degree d=1...9
-    # ---------------------------------------------------------
-    plt.figure(figsize=(15, 10))
-    plt.suptitle("Deliverable 1: Closed-Form Polynomial Fits (d=1 to 9)")
-    
+    # ------------------------------------------------------------------
+    # Deliverable 1: closed-form fits d = 1..9
+    # ------------------------------------------------------------------
     x_plot = np.linspace(0, 1, 200)
-    
-    for d in range(1, 10):
+    fig, axes = plt.subplots(3, 3, figsize=(15, 10))
+    fig.suptitle("Deliverable 1: Closed-Form Polynomial Fits (d=1 to 9)")
+    report.append("Deliverable 1: closed-form (np.linalg.lstsq) fits")
+    for d, ax in zip(range(1, 10), axes.ravel()):
         Phi = generate_polynomial_features(x_train, d)
-        # Robust SVD-based solver for closed-form
-        w_closed, _, _, _ = np.linalg.lstsq(Phi, y_train, rcond=None)
-        
-        Phi_plot = generate_polynomial_features(x_plot, d)
-        y_pred_plot = Phi_plot @ w_closed
-        
-        plt.subplot(3, 3, d)
-        plt.scatter(x_train, y_train, color='red', label='Train Data')
-        plot_true_sine(plt.gca())
-        plt.plot(x_plot, y_pred_plot, color='blue', label=f'Fit d={d}')
-        plt.title(f'Degree {d}')
-        plt.ylim(-1.5, 1.5)
-        if d == 1:
-            plt.legend()
-            
+        w, _, _, _ = np.linalg.lstsq(Phi, y_train, rcond=None)
+        sse = 0.5 * np.sum((Phi @ w - y_train) ** 2)
+        report.append(f"  d={d}: E={sse:.3e}, ||w||_2={np.linalg.norm(w):.3e}")
+        ax.scatter(x_train, y_train, color='red', label='Train data')
+        plot_true_sine(ax)
+        ax.plot(x_plot, generate_polynomial_features(x_plot, d) @ w,
+                color='blue', label=f'Fit d={d}')
+        ax.set_title(f'Degree {d}')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_ylim(-1.5, 1.5)
+        ax.legend(fontsize=7, loc='upper right')
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, 'deliverable_1_fits.png'))
+    plt.savefig(os.path.join(output_dir, 'deliverable_1_fits.png'), dpi=120)
     plt.close()
+    report.append("")
 
-    # ---------------------------------------------------------
-    # Deliverable 2 & 3: GD Implementation & Loss Curves (d=9)
-    # ---------------------------------------------------------
-    d = 9
-    Phi = generate_polynomial_features(x_train, d)
-    
-    # Save the closed-form weights for later verification (Deliverable 5)
+    # ------------------------------------------------------------------
+    # Setup for d = 9 (closed form + thin QR)
+    # ------------------------------------------------------------------
+    Phi = generate_polynomial_features(x_train, D)
     w_closed, _, _, _ = np.linalg.lstsq(Phi, y_train, rcond=None)
-    
-    # Thin QR Decomposition for Numerical Stability
-    Q, R = np.linalg.qr(Phi)
-    
-    epochs = 2000
-    eta = 0.1
-    
-    # Initialize alphas to zero
-    alpha_batch = np.zeros(d + 1)
-    alpha_sgd = np.zeros(d + 1)
-    alpha_mb = np.zeros(d + 1)
-    
-    losses_batch = []
-    losses_sgd = []
-    losses_mb = []
-    
-    for epoch in range(epochs):
-        # --- Batch GD ---
-        # Full sum over all N points (do not divide by N)
-        grad_batch = Q.T @ (Q @ alpha_batch - y_train)
-        alpha_batch = alpha_batch - eta * grad_batch
-        losses_batch.append(calculate_loss(Q, alpha_batch, y_train))
-        
-        # Shuffle for SGD and Mini-batch
-        indices = rng.permutation(N)
-        
-        # --- Stochastic GD (SGD) ---
-        for i in indices:
-            Q_i = Q[i:i+1, :]
-            y_i = y_train[i:i+1]
-            grad_sgd = Q_i.T @ (Q_i @ alpha_sgd - y_i) # Contribution of single point
-            alpha_sgd = alpha_sgd - eta * grad_sgd
-        losses_sgd.append(calculate_loss(Q, alpha_sgd, y_train))
-        
-        # --- Mini-batch GD ---
-        batch_size = 3
-        for start_idx in range(0, N, batch_size):
-            end_idx = min(start_idx + batch_size, N)
-            batch_indices = indices[start_idx:end_idx]
-            Q_b = Q[batch_indices, :]
-            y_b = y_train[batch_indices]
-            
-            # Averaged gradient over the mini-batch
-            grad_mb = (Q_b.T @ (Q_b @ alpha_mb - y_b)) / len(y_b)
-            alpha_mb = alpha_mb - eta * grad_mb
-        losses_mb.append(calculate_loss(Q, alpha_mb, y_train))
+    Q, R = np.linalg.qr(Phi)                      # thin QR, Phi = Q R
+    report.append(f"cond(Phi) for d=9: {np.linalg.cond(Phi):.3e}")
+    report.append(f"||w_closed||_2 (d=9): {np.linalg.norm(w_closed):.6e}")
+    report.append("")
 
-    # Plot Deliverable 3
+    # ------------------------------------------------------------------
+    # Deliverables 2 & 3: GD family, loss curves (eta = 0.1, 2000 epochs)
+    # ------------------------------------------------------------------
+    eta, epochs = 0.1, 2000
+    a_batch, l_batch = batch_gd(Q, y_train, eta, epochs)
+    a_sgd, l_sgd, a_mb, l_mb = sgd_and_minibatch(Q, y_train, eta, epochs, SEED)
+
     plt.figure(figsize=(8, 6))
-    plt.plot(losses_batch, label='Batch GD', linewidth=4, alpha=0.6)
-    plt.plot(losses_sgd, label='Stochastic GD', linestyle='--', linewidth=2)
-    plt.plot(losses_mb, label='Mini-batch GD (size 3)', linewidth=2)
+    plt.plot(l_batch, label='Batch GD', linewidth=4, alpha=0.6)
+    plt.plot(l_sgd, label='Stochastic GD', linestyle='--', linewidth=2)
+    plt.plot(l_mb, label='Mini-batch GD (size 3)', linewidth=2)
     plt.yscale('log')
-    plt.xlabel('Epochs')
-    plt.ylabel('Objective E(w) - Log Scale')
-    plt.title(r'Deliverable 3: Loss Curves for GD Variants ($\eta=0.1$)')
+    plt.xlabel('Epoch')
+    plt.ylabel(r'Objective $E(\alpha)$ (log scale)')
+    plt.title(r'Deliverable 3: Loss Curves for GD Variants ($\eta=0.1$, d=9, QR basis)')
     plt.legend()
     plt.grid(True, which="both", ls="--")
-    plt.savefig(os.path.join(output_dir, 'deliverable_3_loss_curves.png'))
+    plt.savefig(os.path.join(output_dir, 'deliverable_3_loss_curves.png'), dpi=120)
     plt.close()
 
-    # ---------------------------------------------------------
-    # Deliverable 4: Learning-rate study (Batch GD)
-    # ---------------------------------------------------------
-    etas = [0.01, 0.67, 2.1]
-    epochs_study = 100
-    
-    plt.figure(figsize=(8, 6))
-    
-    with open(os.path.join(output_dir, 'deliverable_4_report.txt'), 'w') as f:
-        f.write("Deliverable 4: Learning Rate Study Report\n")
-        f.write("="*40 + "\n")
-        
-        for current_eta in etas:
-            alpha_test = np.zeros(d + 1)
-            losses_test = []
-            for _ in range(epochs_study):
-                grad = Q.T @ (Q @ alpha_test - y_train)
-                alpha_test = alpha_test - current_eta * grad
-                losses_test.append(calculate_loss(Q, alpha_test, y_train))
-            
-            plt.plot(losses_test, label=f'$\eta={current_eta}$')
-            
-            if current_eta > 2.0:
-                # Recover w for the divergent case
-                # Note: alpha might be infinite/NaN here, causing w to be NaN
-                w_divergent = np.linalg.inv(R) @ alpha_test
-                f.write(f"\nRegime: Divergence (eta={current_eta})\n")
-                f.write(f"Objective E after {epochs_study} epochs: {losses_test[-1]}\n")
-                f.write(f"Weight vector w:\n{w_divergent}\n")
-                f.write("At exactly eta=2, the weights oscillate indefinitely because the step size perfectly overshoots the minimum by the same distance every time.\n")
-
-    plt.yscale('log')
-    plt.xlabel('Epochs')
-    plt.ylabel('Objective E(w) - Log Scale')
-    plt.title('Deliverable 4: Batch GD Learning Rate Study')
-    plt.legend()
-    plt.grid(True, which="both", ls="--")
-    plt.savefig(os.path.join(output_dir, 'deliverable_4_lr_study.png'))
+    # ------------------------------------------------------------------
+    # Deliverable 4: learning-rate study (Batch GD, QR, d=9)
+    # ------------------------------------------------------------------
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.5))
+    # Left: 100 epochs, the three required regimes (+ eta = 2 for reference)
+    for eta_i, style in [(0.01, '-'), (0.67, '-'), (2.1, '-'), (2.0, ':')]:
+        _, l = batch_gd(Q, y_train, eta_i, 100)
+        axes[0].plot(l, linestyle=style, label=rf'$\eta={eta_i}$')
+    axes[0].set_title('100 epochs: small / good / divergent (and $\\eta=2$)')
+    # Right: longer range so that slow convergence at eta = 0.01 is visible
+    for eta_i in [0.01, 0.1, 0.67, 2.0]:
+        _, l = batch_gd(Q, y_train, eta_i, 1500)
+        axes[1].plot(l, label=rf'$\eta={eta_i}$')
+    axes[1].set_title('1500 epochs: slow vs. fast convergence')
+    for ax in axes:
+        ax.set_yscale('log')
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel(r'Objective $E(\alpha)$ (log scale)')
+        ax.grid(True, which="both", ls="--")
+        ax.legend()
+    fig.suptitle('Deliverable 4: Batch GD Learning-Rate Study (d=9, QR basis)')
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'deliverable_4_lr_study.png'), dpi=120)
     plt.close()
 
-    # ---------------------------------------------------------
-    # Deliverable 5: Verification
-    # ---------------------------------------------------------
-    # Recover original space weights using w = R^-1 * alpha
-    R_inv = np.linalg.inv(R)
-    w_batch = R_inv @ alpha_batch
-    w_sgd = R_inv @ alpha_sgd
-    w_mb = R_inv @ alpha_mb
-    
-    norm_w_closed = np.linalg.norm(w_closed)
-    
-    with open(os.path.join(output_dir, 'deliverable_5_verification.txt'), 'w') as f:
-        f.write("Deliverable 5: Verification against Closed-Form (d=9)\n")
-        f.write("="*60 + "\n")
-        
-        for name, w_gd in zip(['Batch GD', 'Stochastic GD', 'Mini-batch GD'], [w_batch, w_sgd, w_mb]):
-            abs_err = np.linalg.norm(w_gd - w_closed)
-            rel_err = abs_err / norm_w_closed
-            f.write(f"{name}:\n")
-            f.write(f"  Absolute Error ||w_GD - w_closed||_2: {abs_err:.6e}\n")
-            f.write(f"  Relative Error:                       {rel_err:.6e}\n\n")
+    report.append("Deliverable 4: learning-rate study (Batch GD, 100 epochs)")
+    for eta_i, name in [(0.01, "too small"), (0.67, "well chosen")]:
+        a_i, l = batch_gd(Q, y_train, eta_i, 100)
+        report.append(f"  eta={eta_i} ({name}): E after 100 epochs = {l[-1]:.6e}")
+    a_div, l_div = batch_gd(Q, y_train, 2.1, 100)
+    w_div = np.linalg.solve(R, a_div)             # w = R^{-1} alpha
+    report.append("  eta=2.1 (divergent): "
+                  f"E after 100 epochs = {l_div[-1]:.6e}")
+    report.append("  Weight vector w after 100 epochs (eta=2.1):")
+    report.append("  " + np.array2string(w_div, precision=6, max_line_width=100))
+    a_two, l_two = batch_gd(Q, y_train, 2.0, 101)
+    report.append(
+        f"  eta=2 exactly: E at epochs 98..101 = {l_two[98]:.6f}, {l_two[99]:.6f}, "
+        f"{l_two[100]:.6f}, {l_two[101]:.6f}.")
+    report.append(
+        "  Because Q^T Q = I (largest Hessian eigenvalue 1), the error in each "
+        "coordinate is multiplied by (1 - eta) every epoch. For eta=2 the factor "
+        "is exactly -1: alpha flips between 0 and 2*alpha* and E stays constant "
+        "(no convergence, no divergence). For eta>2, |1-eta|>1 so E grows "
+        "geometrically; for eta=0.01 the factor 0.99 gives very slow decay.")
+    report.append("")
+
+    # ------------------------------------------------------------------
+    # Deliverable 5: verification against closed form (same 2000 epochs)
+    # ------------------------------------------------------------------
+    norm_closed = np.linalg.norm(w_closed)
+    report.append(f"Deliverable 5: verification (eta={eta}, {epochs} epochs, d=9)")
+    report.append(f"  ||w_closed||_2 = {norm_closed:.6e}")
+    for name, a in [('Batch GD', a_batch), ('Stochastic GD', a_sgd), ('Mini-batch GD', a_mb)]:
+        w_gd = np.linalg.solve(R, a)
+        abs_err = np.linalg.norm(w_gd - w_closed)
+        report.append(f"  {name}: ||w_GD - w_closed||_2 = {abs_err:.6e}, "
+                      f"relative error = {abs_err / norm_closed:.6e}")
+    report.append(
+        "  Note: the entries of w are very large for d=9 (||w_closed|| ~ 1e5), so an "
+        "absolute error of ~1e-6 is tiny in relative terms. The three errors are "
+        "almost identical because all variants have converged to machine precision; "
+        "the remaining gap is the numerical floor from R^{-1} (cond(R) ~ 1e7) and "
+        "lstsq, not a difference between the GD variants.")
+    report.append("")
+
+    # ------------------------------------------------------------------
+    # Deliverable 6: discussion
+    # ------------------------------------------------------------------
+    report.append("Deliverable 6: Discussion")
+    report.append(
+        "In the loss-curve plot (eta=0.1), the SGD curve lies on top of the Batch GD "
+        "curve because Q is a square 10x10 orthogonal matrix, so its rows are "
+        "orthonormal: a single-row SGD update only changes the coordinate of alpha "
+        "along that row and does not interact with the other rows, so after one "
+        "epoch every coordinate has been multiplied by (1 - eta), exactly as in one "
+        "Batch GD step (the shuffle order is irrelevant). Mini-batch GD converges "
+        "more slowly because it averages the gradient: in each batch of 3 the "
+        "effective step on those coordinates is eta/3, giving a per-epoch factor of "
+        "about (1 - eta/3) instead of (1 - eta), and only the single leftover "
+        "sample in the batch of size 1 receives the full step, which is why its "
+        "line has a much shallower slope and flattens later (about epoch 850 versus "
+        "about 330).")
+
+    write_report(os.path.join(output_dir, 'part1_report.txt'), report)
+
 
 if __name__ == "__main__":
     run_part1()

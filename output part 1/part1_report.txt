@@ -1,0 +1,37 @@
+PART 1 REPORT
+============================================================
+Random seed used for shuffling: 42 (np.random.default_rng(42))
+
+Deliverable 1: closed-form (np.linalg.lstsq) fits
+  d=1: E=1.387e+00, ||w||_2=1.565e+00
+  d=2: E=1.374e+00, ||w||_2=2.192e+00
+  d=3: E=8.443e-02, ||w||_2=3.882e+01
+  d=4: E=8.082e-02, ||w||_2=3.014e+01
+  d=5: E=1.656e-02, ||w||_2=2.604e+02
+  d=6: E=1.611e-02, ||w||_2=1.474e+02
+  d=7: E=6.274e-03, ||w||_2=4.719e+03
+  d=8: E=3.094e-04, ||w||_2=2.677e+04
+  d=9: E=1.284e-22, ||w||_2=1.092e+05
+
+cond(Phi) for d=9: 1.519e+07
+||w_closed||_2 (d=9): 1.091784e+05
+
+Deliverable 4: learning-rate study (Batch GD, 100 epochs)
+  eta=0.01 (too small): E after 100 epochs = 3.189640e-01
+  eta=0.67 (well chosen): E after 100 epochs = 4.393528e-32
+  eta=2.1 (divergent): E after 100 epochs = 4.521056e+08
+  Weight vector w after 100 epochs (eta=2.1):
+  [-2.329479e+03 -2.930735e+05  5.698342e+06 -5.219706e+07  2.423629e+08 -6.284282e+08  9.564353e+08
+ -8.489599e+08  4.060740e+08 -8.069080e+07]
+  eta=2 exactly: E at epochs 98..101 = 2.380690, 2.380690, 2.380690, 2.380690.
+  Because Q^T Q = I (largest Hessian eigenvalue 1), the error in each coordinate is multiplied by (1 - eta) every epoch. For eta=2 the factor is exactly -1: alpha flips between 0 and 2*alpha* and E stays constant (no convergence, no divergence). For eta>2, |1-eta|>1 so E grows geometrically; for eta=0.01 the factor 0.99 gives very slow decay.
+
+Deliverable 5: verification (eta=0.1, 2000 epochs, d=9)
+  ||w_closed||_2 = 1.091784e+05
+  Batch GD: ||w_GD - w_closed||_2 = 1.964950e-06, relative error = 1.799761e-11
+  Stochastic GD: ||w_GD - w_closed||_2 = 1.965126e-06, relative error = 1.799922e-11
+  Mini-batch GD: ||w_GD - w_closed||_2 = 1.964611e-06, relative error = 1.799451e-11
+  Note: the entries of w are very large for d=9 (||w_closed|| ~ 1e5), so an absolute error of ~1e-6 is tiny in relative terms. The three errors are almost identical because all variants have converged to machine precision; the remaining gap is the numerical floor from R^{-1} (cond(R) ~ 1e7) and lstsq, not a difference between the GD variants.
+
+Deliverable 6: Discussion
+In the loss-curve plot (eta=0.1), the SGD curve lies on top of the Batch GD curve because Q is a square 10x10 orthogonal matrix, so its rows are orthonormal: a single-row SGD update only changes the coordinate of alpha along that row and does not interact with the other rows, so after one epoch every coordinate has been multiplied by (1 - eta), exactly as in one Batch GD step (the shuffle order is irrelevant). Mini-batch GD converges more slowly because it averages the gradient: in each batch of 3 the effective step on those coordinates is eta/3, giving a per-epoch factor of about (1 - eta/3) instead of (1 - eta), and only the single leftover sample in the batch of size 1 receives the full step, which is why its line has a much shallower slope and flattens later (about epoch 850 versus about 330).

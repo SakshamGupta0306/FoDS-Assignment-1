@@ -1,22 +1,24 @@
 PART 2 REPORT
-==================================================
+============================================================
 
-Deliverable 2: GD Agreement
-------------------------------
-Iterations to reach relative error < 1e-6: 28227
-cond(Phi^T Phi):               2.31e+14
-cond(Phi^T Phi + lambda*I):    2.04e+03
-Conditioning Discussion: The addition of the lambda penalty dramatically decreased the condition number, stabilizing the Hessian matrix and making standard gradient descent practical without requiring QR reparameterization.
+Deliverable 2: GD agreement at lambda = 1e-2 (eta = 0.04, start w = 0)
+  Iterations until ||w_GD - w_closed||/||w_closed|| < 1e-6: 28227
+  Final relative error: 9.997e-07
+  cond(Phi^T Phi)           = 2.312e+14
+  cond(Phi^T Phi + lam*I)   = 2.038e+03
+  Conditioning: adding lambda*I lifts every eigenvalue by lambda, so the smallest eigenvalue is no longer ~0 and the condition number drops from ~2.3e+14 to ~2.0e+03, which makes plain GD practical.
 
-Deliverable 3: RMSE Sweep
-------------------------------
-Optimal lambda (lambda*):      1.7783e-07
-Test RMSE at lambda*:          0.114577
-Interval (<= 1.05 * min RMSE): [3.1623e-08, 1.0000e-04]
-Interval Discussion: The minimum is relatively flat within the threshold interval. To the left of the interval (lower lambda), the model overfits, causing test RMSE to spike while train RMSE stays low. To the right of the interval (higher lambda), the model underfits, causing both train and test RMSE to increase.
+Deliverable 3: lambda selection
+  lambda* = 1.7783e-07
+  Test RMSE at lambda* = 0.114577 (train RMSE there = 0.054097)
+  1.05 x min test RMSE = 0.120306
+  Contiguous interval around lambda* with test RMSE <= 1.05 x min: [3.1623e-08, 1.7783e-06] (1.8 decades)
+  Set of ALL grid lambdas satisfying the threshold is contiguous: False
+  All grid lambdas satisfying it: 3.16e-08, 5.62e-08, 1.00e-07, 1.78e-07, 3.16e-07, 5.62e-07, 1.00e-06, 1.78e-06, 1.00e-04
+  Test RMSE at lambda=1e-10: 0.1605; at lambda=1e-2: 0.2660 (train 0.2659)
+  Discussion: The minimum is flat rather than sharp, since test RMSE stays within 5% of its minimum across about 1.8 decades of lambda ([3.2e-08, 1.8e-06]). Below the interval the fit overfits (wiggly, large weights, test RMSE rising to 0.161 while train RMSE is near 0), and above it the fit is over-smoothed so both train and test RMSE climb.
 
-Deliverable 4: Fitted Curves Norms
-------------------------------
-||w||_2 at lambda = 1e-10:     3979.2246
-||w||_2 at lambda = lambda*:   124.4946
-||w||_2 at lambda = 1e-2:      5.1079
+Deliverable 4: ||w||_2 of the three fits
+  lambda = 1.000e-10: ||w||_2 = 3979.2246
+  lambda = 1.778e-07: ||w||_2 = 124.4946
+  lambda = 1.000e-02: ||w||_2 = 5.1079
