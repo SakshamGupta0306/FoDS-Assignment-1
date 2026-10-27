@@ -11,14 +11,14 @@ Deliverable 1: closed-form (np.linalg.lstsq) fits
   d=6: E=1.611e-02, ||w||_2=1.474e+02
   d=7: E=6.274e-03, ||w||_2=4.719e+03
   d=8: E=3.094e-04, ||w||_2=2.677e+04
-  d=9: E=1.284e-22, ||w||_2=1.092e+05
+  d=9: E=2.138e-22, ||w||_2=1.092e+05
 
 cond(Phi) for d=9: 1.519e+07
 ||w_closed||_2 (d=9): 1.091784e+05
 
 Deliverable 4: learning-rate study (Batch GD, 100 epochs)
   eta=0.01 (too small): E after 100 epochs = 3.189640e-01
-  eta=0.67 (well chosen): E after 100 epochs = 4.393528e-32
+  eta=0.67 (well chosen): E after 100 epochs = 1.331299e-32
   eta=2.1 (divergent): E after 100 epochs = 4.521056e+08
   Weight vector w after 100 epochs (eta=2.1):
   [-2.329479e+03 -2.930735e+05  5.698342e+06 -5.219706e+07  2.423629e+08 -6.284282e+08  9.564353e+08
@@ -28,9 +28,9 @@ Deliverable 4: learning-rate study (Batch GD, 100 epochs)
 
 Deliverable 5: verification (eta=0.1, 2000 epochs, d=9)
   ||w_closed||_2 = 1.091784e+05
-  Batch GD: ||w_GD - w_closed||_2 = 1.964950e-06, relative error = 1.799761e-11
-  Stochastic GD: ||w_GD - w_closed||_2 = 1.965126e-06, relative error = 1.799922e-11
-  Mini-batch GD: ||w_GD - w_closed||_2 = 1.964611e-06, relative error = 1.799451e-11
+  Batch GD: ||w_GD - w_closed||_2 = 3.178392e-06, relative error = 2.911191e-11
+  Stochastic GD: ||w_GD - w_closed||_2 = 3.178745e-06, relative error = 2.911515e-11
+  Mini-batch GD: ||w_GD - w_closed||_2 = 3.178282e-06, relative error = 2.911091e-11
   Note: the entries of w are very large for d=9 (||w_closed|| ~ 1e5), so an absolute error of ~1e-6 is tiny in relative terms. The three errors are almost identical because all variants have converged to machine precision; the remaining gap is the numerical floor from R^{-1} (cond(R) ~ 1e7) and lstsq, not a difference between the GD variants.
 
 Deliverable 6: Discussion

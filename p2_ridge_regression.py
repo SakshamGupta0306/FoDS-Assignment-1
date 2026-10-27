@@ -131,19 +131,21 @@ def run_part2():
         report.append("  All grid lambdas satisfying it: " +
                       ", ".join(f"{v:.2e}" for v in all_ok))
     i_hi = int(np.argmin(np.abs(lams - 1e-2)))
-    flat_lo, flat_hi = all_ok.min(), all_ok.max()
-    flat_dec = np.log10(flat_hi / flat_lo)
+    # grid points that meet the threshold but lie outside the contiguous interval
+    isolated = all_ok[(all_ok > contiguous[1]) | (all_ok < contiguous[0])]
+    iso_txt = (", ".join(f"{v:.0e}" for v in isolated)) if len(isolated) else "none"
     report += [
         f"  Test RMSE at lambda=1e-10: {test_rmse[0]:.4f} (train {train_rmse[0]:.4f}); "
         f"at lambda=1e-2: {test_rmse[i_hi]:.4f} (train {train_rmse[i_hi]:.4f})",
-        "  Discussion: The minimum is flat, not sharp. Test RMSE stays within 5% of its "
-        f"minimum from {contiguous[0]:.1e} to {contiguous[1]:.1e} ({decades:.1f} decades), "
-        f"and the grid points satisfying the threshold span {flat_lo:.1e} to {flat_hi:.1e} "
-        f"({flat_dec:.1f} decades), although the threshold is borderline near 1e-5 to 1e-4. "
-        f"Below the interval the fit overfits (train RMSE {train_rmse[0]:.3f} at 1e-10, "
-        f"huge weights, test RMSE rising to {test_rmse[0]:.3f}); above it, test RMSE stays "
-        f"nearly flat until about 1e-4 and then climbs steeply (train and test both reach "
-        f"~{test_rmse[i_hi]:.2f} at 1e-2) as the fit is over-smoothed.",
+        "  Discussion: The minimum is flat rather than sharp: test RMSE stays within 5% "
+        f"of its minimum over [{contiguous[0]:.2e}, {contiguous[1]:.2e}] "
+        f"({decades:.1f} decades), and the only other grid point meeting the threshold "
+        f"({iso_txt}) is an isolated borderline value separated from this interval by "
+        "points that exceed it. Below the interval the fit overfits (train RMSE "
+        f"{train_rmse[0]:.3f} at 1e-10, huge weights, test RMSE up to {test_rmse[0]:.3f}), "
+        "while above it test RMSE hovers near 0.12 up to about 1e-4 and then climbs "
+        f"steeply until train and test merge (~{test_rmse[i_hi]:.2f} at 1e-2) as the "
+        "fit is over-smoothed.",
         ""]
 
     # ------------------------------------------------------------------
