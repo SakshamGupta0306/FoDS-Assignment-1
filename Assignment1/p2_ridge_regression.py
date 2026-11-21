@@ -168,7 +168,6 @@ def run_part2():
         f"  Set of ALL grid lambdas satisfying the threshold is contiguous: "
         f"{is_contiguous}",
     ]
-
     if not is_contiguous:
         report.append(
             "  All grid lambdas satisfying it: "

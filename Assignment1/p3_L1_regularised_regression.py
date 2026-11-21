@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from common import data_path, load_dataset, plot_true_sine, calculate_rmse, write_report
+from Assignment1.common import data_path, load_dataset, plot_true_sine, calculate_rmse, write_report
 
 output_dir = "output part 3"
 os.makedirs(output_dir, exist_ok=True)
