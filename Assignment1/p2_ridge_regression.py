@@ -56,6 +56,12 @@ def run_part2():
         iters += 1
         losses.append(ridge_objective(Phi_train, y_train, w, lam_gd))
         rel_err = np.linalg.norm(w - w_ref) / norm_ref
+    converged = rel_err < 1e-6
+
+    report += [
+        f"  Converged: {converged}",
+        f"  Iteration limit reached: {iters == max_iter}",
+    ]
     losses = np.array(losses)
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 5.5))
@@ -89,63 +95,93 @@ def run_part2():
         f"~{cond_plain:.1e} to ~{cond_pen:.1e}, which makes plain GD practical.",
         ""]
 
-    # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
     # Deliverable 3: RMSE sweep and lambda*
     # ------------------------------------------------------------------
     plt.figure(figsize=(10, 6))
     plt.plot(lams, train_rmse, label='Train RMSE', marker='o', markersize=4)
     plt.plot(lams, test_rmse, label='Test RMSE', marker='s', markersize=4)
-    plt.axhline(0.1, color='black', linestyle='--', label=r'Noise level $\sqrt{0.01}=0.1$')
+    plt.axhline(0.1, color='black', linestyle='--',
+                label=r'Noise level $\sqrt{0.01}=0.1$')
     plt.xscale('log')
     plt.xlabel(r'$\lambda$ (log scale)')
     plt.ylabel('RMSE')
     plt.title(r'Deliverable 3: Train/Test RMSE vs. $\lambda$ (ridge, d=9)')
     plt.legend()
     plt.grid(True, which='both', ls='--')
-    plt.savefig(os.path.join(output_dir, 'deliverable_3_rmse_sweep.png'), dpi=120)
+    plt.savefig(
+        os.path.join(output_dir, 'deliverable_3_rmse_sweep.png'),
+        dpi=120
+    )
     plt.close()
 
+    # Find the optimal lambda
     opt = int(np.argmin(test_rmse))
     lam_star, min_rmse = lams[opt], test_rmse[opt]
+
+    # Find lambdas within 5% of the minimum test RMSE
     mask = test_rmse <= 1.05 * min_rmse
-    lo = hi = opt                                  # contiguous run around the minimum
+
+    # Find the contiguous interval containing the minimum
+    lo = hi = opt
+
     while lo > 0 and mask[lo - 1]:
         lo -= 1
+
     while hi < len(lams) - 1 and mask[hi + 1]:
         hi += 1
+
     contiguous = (lams[lo], lams[hi])
     all_ok = lams[mask]
     is_contiguous = int(mask.sum()) == (hi - lo + 1)
     decades = np.log10(contiguous[1] / contiguous[0])
 
+    # Lambda = 1e-2 results
+    i_hi = int(np.argmin(np.abs(lams - 1e-2)))
+
+    # Two-sentence discussion
+    discussion = (
+        f"  Discussion: The minimum test RMSE is {min_rmse:.6f} "
+        f"at lambda* = {lam_star:.4e}, and the main contiguous "
+        f"interval within 5% of this minimum is "
+        f"[{contiguous[0]:.4e}, {contiguous[1]:.4e}] "
+        f"({decades:.1f} decades), indicating a relatively flat minimum, "
+        "although an isolated qualifying grid point occurs at lambda = 1e-4. "
+        f"At lambda = 1e-10, the low training RMSE "
+        f"({train_rmse[0]:.4f}) and higher test RMSE "
+        f"({test_rmse[0]:.4f}) indicate overfitting, whereas at lambda = 1e-2, "
+        f"the similar training and test RMSE values "
+        f"({train_rmse[i_hi]:.4f} and {test_rmse[i_hi]:.4f}) "
+        "indicate underfitting."
+    )
+
+    # Add results to the report
     report += [
         "Deliverable 3: lambda selection",
         f"  lambda* = {lam_star:.4e}",
-        f"  Test RMSE at lambda* = {min_rmse:.6f} (train RMSE there = {train_rmse[opt]:.6f})",
+        f"  Test RMSE at lambda* = {min_rmse:.6f} "
+        f"(train RMSE there = {train_rmse[opt]:.6f})",
         f"  1.05 x min test RMSE = {1.05 * min_rmse:.6f}",
-        f"  Contiguous interval around lambda* with test RMSE <= 1.05 x min: "
-        f"[{contiguous[0]:.4e}, {contiguous[1]:.4e}] ({decades:.1f} decades)",
-        f"  Set of ALL grid lambdas satisfying the threshold is contiguous: {is_contiguous}",
+        f"  Contiguous interval around lambda* with test RMSE <= "
+        f"1.05 x min: [{contiguous[0]:.4e}, {contiguous[1]:.4e}] "
+        f"({decades:.1f} decades)",
+        f"  Set of ALL grid lambdas satisfying the threshold is contiguous: "
+        f"{is_contiguous}",
     ]
-    if not is_contiguous:
-        report.append("  All grid lambdas satisfying it: " +
-                      ", ".join(f"{v:.2e}" for v in all_ok))
-    i_hi = int(np.argmin(np.abs(lams - 1e-2)))
-    flat_lo, flat_hi = all_ok.min(), all_ok.max()
-    flat_dec = np.log10(flat_hi / flat_lo)
-    report += [
-        f"  Test RMSE at lambda=1e-10: {test_rmse[0]:.4f} (train {train_rmse[0]:.4f}); "
-        f"at lambda=1e-2: {test_rmse[i_hi]:.4f} (train {train_rmse[i_hi]:.4f})",
-        "  Discussion: The minimum is flat, not sharp. Test RMSE stays within 5% of its "
-        f"minimum from {contiguous[0]:.1e} to {contiguous[1]:.1e} ({decades:.1f} decades), "
-        f"and the grid points satisfying the threshold span {flat_lo:.1e} to {flat_hi:.1e} "
-        f"({flat_dec:.1f} decades), although the threshold is borderline near 1e-5 to 1e-4. "
-        f"Below the interval the fit overfits (train RMSE {train_rmse[0]:.3f} at 1e-10, "
-        f"huge weights, test RMSE rising to {test_rmse[0]:.3f}); above it, test RMSE stays "
-        f"nearly flat until about 1e-4 and then climbs steeply (train and test both reach "
-        f"~{test_rmse[i_hi]:.2f} at 1e-2) as the fit is over-smoothed.",
-        ""]
 
+    if not is_contiguous:
+        report.append(
+            "  All grid lambdas satisfying it: "
+            + ", ".join(f"{v:.2e}" for v in all_ok)
+        )
+
+    report += [
+        f"  Test RMSE at lambda=1e-10: {test_rmse[0]:.4f} "
+        f"(train {train_rmse[0]:.4f}); at lambda=1e-2: "
+        f"{test_rmse[i_hi]:.4f} (train {train_rmse[i_hi]:.4f})",
+        discussion,
+        ""
+    ]
     # ------------------------------------------------------------------
     # Deliverable 4: fitted curves (overfit / lambda* / 1e-2)
     # ------------------------------------------------------------------
