@@ -13,7 +13,7 @@ BATCH_SIZE = 3
 
 
 def loss(Q, a, t):
-    """E(alpha) = 0.5 * ||Q alpha - t||^2 (unnormalised SSE)."""
+    """E(w) = 0.5 * ||y(w) - t||^2 (unnormalised SSE)."""
     return 0.5 * np.sum((Q @ a - t) ** 2)
 
 

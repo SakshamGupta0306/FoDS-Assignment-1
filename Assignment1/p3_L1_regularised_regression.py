@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from common import data_path, load_dataset, plot_true_sine, calculate_rmse, write_report
+from Assignment1.common import data_path, load_dataset, plot_true_sine, calculate_rmse, write_report
 
 output_dir = "output part 3"
 os.makedirs(output_dir, exist_ok=True)
@@ -208,10 +208,8 @@ def run_part3():
         f"as lambda grows ({zc[0]} are ~0 at lambda={lams[0]:.0e}, {len(zero_idx)} at "
         f"lambda*={lam_l:.2f}, {zc[-1]} at lambda={lams[-1]:.0f}). The |w| penalty has a "
         "kink at 0, so its pull on w_j keeps magnitude lambda however small w_j gets, and "
-        "w_j can sit at 0 whenever |Phi_j^T r| <= lambda (the L1 ball has corners on the "
-        "axes); with a constant step the subgradient method only keeps it ~0, within "
-        "about eta*lambda. The L2 pull, lambda*w_j, vanishes as w_j -> 0, so ridge only "
-        "shrinks. "
+        "w_j stays at 0 whenever |Phi_j^T r| <= lambda (the L1 ball has corners on the "
+        "axes). The L2 pull, lambda*w_j, vanishes as w_j -> 0, so ridge only shrinks. "
         f"At their best lambda, Lasso has {n_small_l} coefficients with |w_j|<0.01 versus "
         f"{n_small_r} for Ridge, at similar ||w||_2 ({np.linalg.norm(w_l):.2f} vs "
         f"{np.linalg.norm(w_r):.2f}) and lower test RMSE ({te[i_l]:.4f} vs {te_r[i_r]:.4f}). "
