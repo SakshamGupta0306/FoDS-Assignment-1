@@ -1,0 +1,31 @@
+============================================================
+Running Problem 2: Variance Captured vs. Number of Components
+============================================================
+Elbow criterion (r_k >= 0.10): k_elbow = 3 (explains 11.01% of var, cumulative 65.95%)
+Cumulative threshold tau=0.80: k_0.80 = 5
+Cumulative threshold tau=0.90: k_0.90 = 7
+Cumulative threshold tau=0.95: k_0.95 = 10
+Kaiser criterion count (lambda > 1.0): 3
+
+--- Summary Table for k = 1 ... 13 ---
+ k    r_k   R(k)  J_train(k)  J_test(k)
+ 1 0.3573 0.3573      8.3550     8.5455
+ 2 0.1921 0.5494      5.8578     6.1120
+ 3 0.1101 0.6595      4.4270     4.5980
+ 4 0.0725 0.7320      3.4844     3.8979
+ 5 0.0697 0.8017      2.5779     3.0326
+ 6 0.0534 0.8551      1.8835     2.4541
+ 7 0.0456 0.9007      1.2913     1.8367
+ 8 0.0242 0.9248      0.9773     1.3861
+ 9 0.0204 0.9452      0.7120     1.0353
+10 0.0198 0.9650      0.4550     0.7532
+11 0.0169 0.9819      0.2359     0.4497
+12 0.0109 0.9927      0.0947     0.1726
+13 0.0073 1.0000      0.0000     0.0000
+
+--- Numerical Verification of Identity ---
+max_{k=1..13} |J_train(k) - sum_{j>k} lambda_j| = 2.6645e-15
+Identity holds (< 1e-8): True
+
+Saved Scree and Cumulative variance plot to: /home/saksham/Desktop/code/FoDS ASS 2/FoDS-Assignment-1/Assignment2/output/p2_scree_cumulative.png
+Saved Reconstruction error plot to: /home/saksham/Desktop/code/FoDS ASS 2/FoDS-Assignment-1/Assignment2/output/p2_reconstruction_error.png

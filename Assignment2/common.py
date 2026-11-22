@@ -46,7 +46,7 @@ def compute_standardisation_params(X_train):
     """
     C1 & C2: Compute training mean mu_j and training sample standard deviation s_j (divisor N-1).
     """
-    N = X_train.shape[0]
+    #N = X_train.shape[0]
     mu = np.mean(X_train, axis=0)
     # divisor N - 1 (ddof=1)
     s = np.std(X_train, axis=0, ddof=1)

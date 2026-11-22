@@ -1,0 +1,16 @@
+============================================================
+Running Problem 3: Effect of Preprocessing
+============================================================
+
+--- V1: Top 3 Features with Largest Raw Sample Variance ---
+  - proline: raw variance = 94906.7109
+  - magnesium: raw variance = 232.0715
+  - alcalinity_of_ash: raw variance = 11.4713
+
+--- Deliverable 1: Preprocessing Comparison Table ---
+Variant     r1     r2  r1 + r2 Top PC1 Feature  5-NN Test Acc
+     V1 0.9978 0.0021   0.9998         proline         0.7222
+     V2 0.4271 0.1841   0.6113      flavanoids         0.9815
+     V3 0.3573 0.1921   0.5494      flavanoids         0.9444
+
+Saved 3-panel projection plot to: /home/saksham/Desktop/code/FoDS ASS 2/FoDS-Assignment-1/Assignment2/output/p3_projections_comparison.png

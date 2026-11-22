@@ -96,7 +96,7 @@ def run_p3():
         proj_test = X_te @ U2
 
         # 5-NN classifier
-        knn = KNeighborsClassifier(n_neighbors=5, metric="euclidean")
+        knn = KNeighborsClassifier(n_neighbors=5)
         knn.fit(proj_train, y_train)
         acc_test = knn.score(proj_test, y_test)
 
